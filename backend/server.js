@@ -9,7 +9,14 @@ const connectDB = require('./config/db');
 const app = express();
 
 // Connect to MongoDB
+// Connect to MongoDB
 connectDB();
+
+// Request logger
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
+  next();
+});
 
 // Security Middleware
 app.use(helmet()); // Set security headers
@@ -23,9 +30,10 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // CORS configuration
+// CORS configuration
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: ['http://localhost:3000', 'http://localhost:3001'],
     credentials: true,
   })
 );
@@ -36,6 +44,11 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/dashboard', require('./routes/dashboard_v2'));
+
+app.get('/api/test', (req, res) => {
+  res.json({ message: 'test ok' });
+});
 
 // Health check route
 app.get('/api/health', (req, res) => {

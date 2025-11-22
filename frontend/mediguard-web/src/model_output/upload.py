@@ -3,7 +3,7 @@ import pandas as pd
 from psycopg2.extras import execute_batch
 
 # === 1. Read CSV ===
-df = pd.read_csv(r"C:\Users\vedan\OneDrive\Desktop\MediGuard\MediGuardAI-AgniOps\frontend\mediguard-web\src\model_output\Blood_samples_dataset_extended_scaled_11300.csv")
+df = pd.read_csv(r"C:\Users\vedan\OneDrive\Desktop\MediGuard\MediGuardAI-AgniOps\frontend\mediguard-web\src\model_output\output_with_ids.csv")
 
 # === 2. Connect to Neon PostgreSQL ===
 DATABASE_URL = "postgresql://neondb_owner:npg_cnPiGrNvK3Q0@ep-falling-term-a1ix3b9f-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"

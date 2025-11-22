@@ -1,11 +1,42 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
-import { Lock, Mail, ArrowRight } from 'lucide-react'
+import { Lock, Mail, ArrowRight, Loader2 } from 'lucide-react'
+import { useState } from 'react'
+import { login } from '../lib/api'
+import { toast } from 'sonner'
 
 const LoginPage = () => {
+    const navigate = useNavigate()
+    const [loading, setLoading] = useState(false)
+    const [formData, setFormData] = useState({
+        email: '',
+        password: ''
+    })
+
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.id]: e.target.value })
+    }
+
+    const handleSubmit = async (e) => {
+        e.preventDefault()
+        setLoading(true)
+        try {
+            const data = await login(formData)
+            localStorage.setItem('token', data.data.token)
+            localStorage.setItem('user', JSON.stringify(data.data))
+            toast.success('Login successful')
+            // Redirect to nurse dashboard
+            navigate('/nurse-dashboard')
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Login failed')
+        } finally {
+            setLoading(false)
+        }
+    }
+
     return (
         <div className="min-h-screen flex">
             {/* Left side - Image with enhanced overlay */}
@@ -55,6 +86,9 @@ const LoginPage = () => {
                                     id="email"
                                     placeholder="doctor@hospital.com"
                                     type="email"
+                                    value={formData.email}
+                                    onChange={handleChange}
+                                    disabled={loading}
                                     className="pl-11 h-12 border-gray-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-500 transition-all"
                                 />
                             </div>
@@ -72,15 +106,31 @@ const LoginPage = () => {
                                 <Input
                                     id="password"
                                     type="password"
+                                    value={formData.password}
+                                    onChange={handleChange}
+                                    disabled={loading}
                                     className="pl-11 h-12 border-gray-200 focus:border-slate-500 focus:ring-2 focus:ring-slate-500 transition-all"
                                     placeholder="••••••••"
                                 />
                             </div>
                         </div>
 
-                        <Button className="w-full h-12 bg-gradient-to-r from-slate-700 to-gray-800 hover:from-slate-800 hover:to-gray-900 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200 group mt-6">
-                            Sign In
-                            <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                        <Button
+                            onClick={handleSubmit}
+                            disabled={loading}
+                            className="w-full h-12 bg-gradient-to-r from-slate-700 to-gray-800 hover:from-slate-800 hover:to-gray-900 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-200 group mt-6"
+                        >
+                            {loading ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Signing In...
+                                </>
+                            ) : (
+                                <>
+                                    Sign In
+                                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                                </>
+                            )}
                         </Button>
 
                         <p className="text-sm text-center text-gray-600 mt-4">
