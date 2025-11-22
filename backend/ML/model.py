@@ -1,0 +1,119 @@
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import (
+    accuracy_score, recall_score, classification_report, confusion_matrix
+)
+
+from xgboost import XGBClassifier
+from xgboost.callback import EarlyStopping
+
+import warnings
+warnings.filterwarnings("ignore")
+
+DATA_PATH = "/content/Blood_samples_dataset_medical_corrected_v2.csv"
+
+print(" Loading dataset...")
+df = pd.read_csv(DATA_PATH)
+print("Shape:", df.shape)
+
+features = [c for c in df.columns if c != "Disease"]
+df_clean = df.copy()
+
+for col in features:
+    mask = (df_clean[col] < 0) | (df_clean[col] > 1)
+    if mask.sum() > 0:
+        df_clean.loc[mask, col] = df_clean.groupby("Disease")[col].transform("median")
+
+print("Outliers cleaned.")
+
+X = df_clean[features]
+y = df_clean["Disease"]
+
+le = LabelEncoder()
+y_enc = le.fit_transform(y)
+
+X_train, X_temp, y_train, y_temp = train_test_split(
+    X, y_enc, test_size=0.4, stratify=y_enc, random_state=42
+)
+X_val, X_test, y_val, y_test = train_test_split(
+    X_temp, y_temp, test_size=0.5, stratify=y_temp, random_state=42
+)
+
+print("\n✂ Train:", X_train.shape)
+print("✂ Validation:", X_val.shape)
+print("✂ Test:", X_test.shape)
+
+print("\n Training Improved XGBoost Model...")
+
+model = XGBClassifier(
+    objective="multi:softprob",
+    num_class=len(le.classes_),
+    random_state=42,
+    n_estimators=400,   
+    learning_rate=0.03,   
+
+    max_depth=4,
+    reg_lambda=2.0,
+    reg_alpha=1.0,
+
+    subsample=0.7,
+    colsample_bytree=0.7,
+    min_child_weight=3,
+    gamma=0.5,
+
+    eval_metric="mlogloss"
+)
+
+model.fit(
+    X_train, y_train,
+    eval_set=[(X_val, y_val)],
+    callbacks=[EarlyStopping(rounds=25, save_best=True)],
+    verbose=50
+)
+
+print(" Improved model trained!")
+
+
+y_train_pred = model.predict(X_train)
+train_acc = accuracy_score(y_train, y_train_pred)
+train_recall = recall_score(y_train, y_train_pred, average="macro")
+
+print("\n TRAIN PERFORMANCE")
+print("Train Accuracy:", train_acc)
+print("Train Macro Recall:", train_recall)
+
+y_pred = model.predict(X_test)
+test_acc = accuracy_score(y_test, y_pred)
+test_recall_macro = recall_score(y_test, y_pred, average="macro")
+
+print("\n TEST PERFORMANCE")
+print("Test Accuracy:", test_acc)
+print("Test Macro Recall:", test_recall_macro)
+
+print("\n CLASSIFICATION REPORT")
+print(classification_report(y_test, y_pred, target_names=le.classes_))
+
+
+plt.figure(figsize=(12,8))
+sns.heatmap(confusion_matrix(y_test, y_pred), cmap="Blues")
+plt.title("Confusion Matrix")
+plt.show()
+
+
+importance_df = pd.DataFrame({
+    "Feature": features,
+    "Importance": model.feature_importances_
+}).sort_values(by="Importance", ascending=False)
+
+print("\n FEATURE IMPORTANCE (All 24 Features)")
+display(importance_df)
+
+plt.figure(figsize=(10,6))
+sns.barplot(data=importance_df, x="Importance", y="Feature")
+plt.title("XGBoost Feature Importance")
+plt.show()
