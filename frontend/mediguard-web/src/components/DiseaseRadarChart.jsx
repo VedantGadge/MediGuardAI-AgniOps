@@ -60,7 +60,13 @@ export function DiseaseRadarChart() {
                         const name = item.biomarker?.toString().trim().toLowerCase();
                         return name && name !== 'id' && name !== '_id';
                     });
-                    setRadarData(filteredData)
+
+                    // Sort by value descending and take top 7
+                    const top7Data = filteredData
+                        .sort((a, b) => b.value - a.value)
+                        .slice(0, 7);
+
+                    setRadarData(top7Data)
                 } catch (error) {
                     console.error("Error fetching disease profile:", error)
                     setRadarData([])

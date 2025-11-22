@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const jwt = require('jsonwebtoken');
+const axios = require('axios');
 const User = require('../models/User');
 
 // Generate JWT Token
@@ -30,6 +31,10 @@ router.post(
       .isEmail()
       .withMessage('Please provide a valid email')
       .normalizeEmail(),
+    body('role')
+      .optional()
+      .isIn(['user', 'admin', 'doctor', 'nurse'])
+      .withMessage('Invalid role specified'),
     body('password')
       .trim()
       .notEmpty()
@@ -66,10 +71,47 @@ router.post(
         name,
         email,
         password,
+        role: req.body.role || 'user', // Accept role from request body
       });
 
       // Generate token
       const token = generateToken(user._id);
+
+      // Call blockchain API to add entry to ledger
+      try {
+        console.log('Attempting to add user to blockchain ledger...');
+        console.log('Blockchain payload:', {
+          user_id: user._id.toString(),
+          username: user.name,
+          role: user.role
+        });
+        
+        const blockchainResponse = await axios.post(
+          'https://prettied-octavio-uncomparably.ngrok-free.dev/ledger/add-entry', 
+          {
+            user_id: user._id.toString(),
+            username: user.name,
+            role: user.role
+          }, 
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'ngrok-skip-browser-warning': 'true'
+            }
+          }
+        );
+        
+        console.log('✅ User successfully added to blockchain ledger');
+        console.log('Blockchain response:', blockchainResponse.data);
+      } catch (blockchainError) {
+        // Log the error but don't fail the signup
+        console.error('❌ Blockchain ledger error:', blockchainError.message);
+        if (blockchainError.response) {
+          console.error('Response status:', blockchainError.response.status);
+          console.error('Response data:', blockchainError.response.data);
+        }
+        console.error('User created in database but not added to blockchain ledger');
+      }
 
       res.status(201).json({
         success: true,

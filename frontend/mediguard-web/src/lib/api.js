@@ -31,8 +31,15 @@ export const signup = async (userData) => {
   return response.data;
 };
 
-export const getPatientAnalysis = async (patientId) => {
-  const response = await api.get(`/dashboard/patient-analysis/${patientId}`);
+export const getPatientDates = async (patientId) => {
+  const response = await api.get(`/dashboard/patient-dates/${patientId}`);
+  return response.data;
+};
+
+export const getPatientAnalysis = async (patientId, timestamp = null) => {
+  const url = `/dashboard/patient-analysis/${patientId}`;
+  const params = timestamp ? { timestamp } : {};
+  const response = await api.get(url, { params });
   return response.data;
 };
 

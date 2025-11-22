@@ -246,6 +246,34 @@ router.get('/patient/:patientId', async (req, res) => {
   }
 });
 
+// @route   GET /api/dashboard/patient-dates/:patientId
+// @desc    Get all analysis dates for a patient
+// @access  Public
+router.get('/patient-dates/:patientId', async (req, res) => {
+  console.log('Hit /patient-dates/:patientId route');
+  try {
+    const { patientId } = req.params;
+    
+    const query = `
+      SELECT "Timestamp"
+      FROM blood_samples
+      WHERE "PatientID" = $1
+      ORDER BY "Timestamp" DESC;
+    `;
+    
+    const result = await pool.query(query, [patientId]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'No analysis records found for this patient' });
+    }
+    
+    res.json(result.rows.map(row => row.Timestamp));
+  } catch (err) {
+    console.error('Error fetching patient dates:', err);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
 // @route   GET /api/dashboard/patient-analysis/:patientId
 // @desc    Get patient analysis with disease prediction and top contributing factors
 // @access  Public
@@ -253,17 +281,34 @@ router.get('/patient-analysis/:patientId', async (req, res) => {
   console.log('Hit /patient-analysis/:patientId route');
   try {
     const { patientId } = req.params;
+    const { timestamp } = req.query;
     
     // Get patient data
-    const patientQuery = `
-      SELECT *
-      FROM blood_samples
-      WHERE "PatientID" = $1
-      ORDER BY "Timestamp" DESC
-      LIMIT 1;
-    `;
+    let patientQuery;
+    let queryParams;
     
-    const patientResult = await pool.query(patientQuery, [patientId]);
+    if (timestamp) {
+      // Get specific timestamp
+      patientQuery = `
+        SELECT *
+        FROM blood_samples
+        WHERE "PatientID" = $1 AND "Timestamp" = $2
+        LIMIT 1;
+      `;
+      queryParams = [patientId, timestamp];
+    } else {
+      // Get latest
+      patientQuery = `
+        SELECT *
+        FROM blood_samples
+        WHERE "PatientID" = $1
+        ORDER BY "Timestamp" DESC
+        LIMIT 1;
+      `;
+      queryParams = [patientId];
+    }
+    
+    const patientResult = await pool.query(patientQuery, queryParams);
     
     if (patientResult.rows.length === 0) {
       return res.status(404).json({ message: 'Patient not found' });
@@ -310,9 +355,18 @@ router.get('/patient-analysis/:patientId', async (req, res) => {
       }
     }
     
-    // Sort by deviation and take top 10
+    // Sort by correlation value (patient value) first, then by deviation
+    // Higher correlation is more important than higher deviation
     const topContributingFactors = contributingFactors
-      .sort((a, b) => b.deviation - a.deviation)
+      .sort((a, b) => {
+        // Primary sort: by patient correlation value (descending)
+        const correlationDiff = b.patientValue - a.patientValue;
+        if (Math.abs(correlationDiff) > 0.01) { // If correlation difference is significant
+          return correlationDiff;
+        }
+        // Secondary sort: if correlations are similar, sort by deviation
+        return b.deviation - a.deviation;
+      })
       .slice(0, 10);
     
     res.json({

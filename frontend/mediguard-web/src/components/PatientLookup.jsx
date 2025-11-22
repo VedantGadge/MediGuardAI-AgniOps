@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Search, User, Activity, Calendar, AlertCircle, CheckCircle } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Search, User, Activity, Calendar, AlertCircle } from 'lucide-react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
+import { Badge } from './ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import ContributingFactorsChart from './ContributingFactorsChart';
-import { getPatientAnalysis } from '../lib/api';
+import { getPatientAnalysis, getPatientDates } from '../lib/api';
 import { toast } from 'sonner';
 
 export const PatientLookup = () => {
@@ -12,10 +13,13 @@ export const PatientLookup = () => {
     const [loading, setLoading] = useState(false);
     const [patientData, setPatientData] = useState(null);
     const [error, setError] = useState(null);
+    const [availableDates, setAvailableDates] = useState([]);
+    const [selectedDate, setSelectedDate] = useState('');
+    const [selectedYear, setSelectedYear] = useState('all');
 
     const handleSearch = async (e) => {
         e.preventDefault();
-        
+
         if (!patientId.trim()) {
             toast.error('Please enter a Patient ID');
             return;
@@ -24,13 +28,39 @@ export const PatientLookup = () => {
         setLoading(true);
         setError(null);
         setPatientData(null);
+        setAvailableDates([]);
+        setSelectedDate('');
+        setSelectedYear('all');
 
         try {
+            // Fetch available dates first
+            const dates = await getPatientDates(patientId.trim());
+            setAvailableDates(dates);
+
+            // Fetch latest analysis
             const data = await getPatientAnalysis(patientId.trim());
             setPatientData(data);
+            setSelectedDate(data.timestamp);
             toast.success('Patient data loaded successfully!');
         } catch (err) {
             const errorMsg = err.response?.data?.message || 'Failed to fetch patient data';
+            setError(errorMsg);
+            toast.error(errorMsg);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDateChange = async (newDate) => {
+        setSelectedDate(newDate);
+        setLoading(true);
+
+        try {
+            const data = await getPatientAnalysis(patientId.trim(), newDate);
+            setPatientData(data);
+            toast.success('Analysis data updated!');
+        } catch (err) {
+            const errorMsg = err.response?.data?.message || 'Failed to fetch analysis data';
             setError(errorMsg);
             toast.error(errorMsg);
         } finally {
@@ -47,172 +77,185 @@ export const PatientLookup = () => {
         });
     };
 
-    const getDiseaseColor = (disease) => {
-        const colors = {
-            'Diabetes': 'text-red-600 bg-red-50 border-red-200',
-            'Healthy': 'text-green-600 bg-green-50 border-green-200',
-            'Prediabetes': 'text-yellow-600 bg-yellow-50 border-yellow-200',
-            'NAFLD': 'text-orange-600 bg-orange-50 border-orange-200',
-            'Thalassemia': 'text-purple-600 bg-purple-50 border-purple-200',
-            'Coronary Artery Disease': 'text-rose-600 bg-rose-50 border-rose-200',
-            'Infection/Inflammation': 'text-amber-600 bg-amber-50 border-amber-200',
-            'Hepatitis-like inflammation': 'text-red-700 bg-red-50 border-red-200',
-            'Dyslipidemia': 'text-blue-600 bg-blue-50 border-blue-200',
-            'Polycythemia': 'text-indigo-600 bg-indigo-50 border-indigo-200',
-        };
-        return colors[disease] || 'text-gray-600 bg-gray-50 border-gray-200';
+    const getDiseaseBadgeVariant = (disease) => {
+        if (disease === 'Healthy') return 'default';
+        return 'destructive';
+    };
+
+    // Get unique years from available dates
+    const getAvailableYears = () => {
+        const years = availableDates.map(date => new Date(date).getFullYear());
+        return ['all', ...new Set(years)].sort((a, b) => {
+            if (a === 'all') return -1;
+            if (b === 'all') return 1;
+            return b - a; // Most recent first
+        });
+    };
+
+    // Filter dates by selected year
+    const getFilteredDates = () => {
+        if (selectedYear === 'all') return availableDates;
+        return availableDates.filter(date =>
+            new Date(date).getFullYear() === selectedYear
+        );
     };
 
     return (
-        <div className="space-y-6">
-            {/* Search Section */}
-            <Card className="shadow-xl rounded-2xl border-0 bg-gradient-to-br from-white to-blue-50">
-                <CardHeader>
-                    <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent flex items-center gap-2">
-                        <Search className="w-6 h-6 text-blue-600" />
-                        Patient Lookup
-                    </CardTitle>
-                    <p className="text-sm text-gray-600 mt-2">
-                        Enter a Patient ID to view disease prediction and contributing factors
-                    </p>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleSearch} className="flex gap-3">
-                        <div className="flex-1">
-                            <Input
-                                type="text"
-                                placeholder="Enter Patient ID (e.g., P001)"
-                                value={patientId}
-                                onChange={(e) => setPatientId(e.target.value)}
-                                className="h-12 text-lg border-2 focus:border-blue-500"
-                                disabled={loading}
-                            />
-                        </div>
-                        <Button
-                            type="submit"
+        <div className="max-w-7xl mx-auto space-y-8 p-6 animate-in fade-in duration-500">
+            {/* Header & Search - Clean & Prominent */}
+            <div className="flex flex-col md:flex-row gap-6 items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Patient Lookup</h1>
+                    <p className="text-gray-500 mt-1">View disease prediction and analysis</p>
+                </div>
+                <form onSubmit={handleSearch} className="flex w-full md:w-auto gap-3 min-w-[400px]">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <Input
+                            type="text"
+                            placeholder="Enter Patient ID (e.g., P001)"
+                            value={patientId}
+                            onChange={(e) => setPatientId(e.target.value)}
+                            className="pl-10 h-12 bg-white border-gray-200 focus:border-blue-500 text-lg shadow-sm rounded-xl"
                             disabled={loading}
-                            className="h-12 px-8 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold"
-                        >
-                            {loading ? (
-                                <span className="flex items-center gap-2">
-                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    Searching...
-                                </span>
-                            ) : (
-                                <span className="flex items-center gap-2">
-                                    <Search className="w-5 h-5" />
-                                    Search
-                                </span>
-                            )}
-                        </Button>
-                    </form>
-                </CardContent>
-            </Card>
+                        />
+                    </div>
+                    <Button
+                        type="submit"
+                        disabled={loading}
+                        className="h-12 px-6 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-sm transition-all"
+                    >
+                        {loading ? (
+                            <span className="flex items-center gap-2">
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                Searching...
+                            </span>
+                        ) : (
+                            'Search'
+                        )}
+                    </Button>
+                </form>
+            </div>
 
             {/* Error State */}
             {error && (
-                <Card className="shadow-lg rounded-2xl border-2 border-red-200 bg-red-50">
-                    <CardContent className="p-6">
-                        <div className="flex items-center gap-3 text-red-700">
-                            <AlertCircle className="w-6 h-6" />
-                            <div>
-                                <p className="font-semibold">Error</p>
-                                <p className="text-sm">{error}</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                <div className="p-4 bg-red-50 border-l-4 border-red-500 text-red-700 flex items-center gap-3">
+                    <AlertCircle className="w-5 h-5" />
+                    {error}
+                </div>
             )}
 
             {/* Patient Data Display */}
             {patientData && (
-                <div className="space-y-6 animate-fade-in">
-                    {/* Patient Info Card */}
-                    <Card className="shadow-xl rounded-2xl border-0 bg-gradient-to-br from-white to-purple-50">
-                        <CardHeader>
-                            <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                                <User className="w-5 h-5 text-purple-600" />
-                                Patient Information
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                {/* Patient ID */}
-                                <div className="p-4 rounded-lg bg-white shadow-sm border border-purple-100">
-                                    <div className="flex items-center gap-2 text-gray-600 mb-2">
-                                        <User className="w-4 h-4" />
-                                        <span className="text-sm font-medium">Patient ID</span>
-                                    </div>
-                                    <p className="text-2xl font-bold text-purple-600">
-                                        {patientData.patientId}
-                                    </p>
-                                </div>
-
-                                {/* Disease Prediction */}
-                                <div className="p-4 rounded-lg bg-white shadow-sm border border-purple-100">
-                                    <div className="flex items-center gap-2 text-gray-600 mb-2">
-                                        <Activity className="w-4 h-4" />
-                                        <span className="text-sm font-medium">Predicted Disease</span>
-                                    </div>
-                                    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border-2 ${getDiseaseColor(patientData.disease)}`}>
-                                        {patientData.disease === 'Healthy' ? (
-                                            <CheckCircle className="w-4 h-4" />
-                                        ) : (
-                                            <AlertCircle className="w-4 h-4" />
-                                        )}
-                                        <span className="font-bold text-sm">
-                                            {patientData.disease}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Timestamp */}
-                                <div className="p-4 rounded-lg bg-white shadow-sm border border-purple-100">
-                                    <div className="flex items-center gap-2 text-gray-600 mb-2">
-                                        <Calendar className="w-4 h-4" />
-                                        <span className="text-sm font-medium">Sample Date</span>
-                                    </div>
-                                    <p className="text-lg font-semibold text-gray-800">
-                                        {formatDate(patientData.timestamp)}
-                                    </p>
+                <div className="space-y-0 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    {/* Patient Info Bar */}
+                    <div className="py-6 flex flex-wrap gap-8 items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-blue-50 rounded-full">
+                                <User className="w-6 h-6 text-blue-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500 font-medium">Patient ID</p>
+                                <p className="text-xl font-bold text-gray-900">{patientData.patientId}</p>
+                            </div>
+                        </div>
+                        <div className="h-10 w-px bg-gray-200 hidden md:block" />
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-purple-50 rounded-full">
+                                <Activity className="w-6 h-6 text-purple-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500 font-medium">Predicted Disease</p>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xl font-bold text-gray-900">{patientData.disease}</span>
+                                    <Badge variant={getDiseaseBadgeVariant(patientData.disease)} className="ml-2">
+                                        {patientData.disease === 'Healthy' ? 'Low Risk' : 'High Risk'}
+                                    </Badge>
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                        <div className="h-10 w-px bg-gray-200 hidden md:block" />
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-green-50 rounded-full">
+                                <Calendar className="w-6 h-6 text-green-600" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500 font-medium">Analysis Date</p>
+                                {availableDates.length > 1 ? (
+                                    <div className="flex gap-2 items-center">
+                                        {/* Year Filter */}
+                                        {getAvailableYears().length > 2 && (
+                                            <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(val === 'all' ? 'all' : parseInt(val))}>
+                                                <SelectTrigger className="w-[100px] h-8 text-xs">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {getAvailableYears().map((year) => (
+                                                        <SelectItem key={year} value={year.toString()}>
+                                                            {year === 'all' ? 'All Years' : year}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                        {/* Date Dropdown */}
+                                        <Select value={selectedDate} onValueChange={handleDateChange}>
+                                            <SelectTrigger className="w-[200px] h-8 text-sm font-bold">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {getFilteredDates().map((date) => (
+                                                    <SelectItem key={date} value={date}>
+                                                        {formatDate(date)}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                ) : (
+                                    <p className="text-xl font-bold text-gray-900">{formatDate(patientData.timestamp)}</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
 
-                    {/* Contributing Factors Chart */}
-                    {patientData.topContributingFactors && patientData.topContributingFactors.length > 0 && (
-                        <ContributingFactorsChart data={patientData.topContributingFactors} />
-                    )}
+                    {/* Divider */}
+                    <div className="border-t border-gray-200"></div>
 
-                    {/* Key Biomarkers Table */}
-                    <Card className="shadow-xl rounded-2xl border-0 bg-gradient-to-br from-white to-gray-50">
-                        <CardHeader>
-                            <CardTitle className="text-xl font-bold text-gray-800">
-                                Key Biomarker Values
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                {patientData.topContributingFactors.slice(0, 8).map((factor, index) => (
-                                    <div
-                                        key={index}
-                                        className="p-3 rounded-lg bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100"
-                                    >
-                                        <p className="text-xs font-medium text-gray-600 mb-1">
-                                            {factor.biomarker}
-                                        </p>
-                                        <p className="text-lg font-bold text-blue-600">
-                                            {factor.patientValue.toFixed(4)}
-                                        </p>
-                                        <p className="text-xs text-gray-500">
-                                            Avg: {factor.diseaseAverage.toFixed(4)}
-                                        </p>
+                    {/* Main Content Grid */}
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 pt-8">
+                        {/* Left Column: Charts & Analysis (Span 2) */}
+                        <div className="xl:col-span-2 space-y-8">
+                            {patientData.topContributingFactors && (
+                                <ContributingFactorsChart data={patientData.topContributingFactors} />
+                            )}
+                        </div>
+
+                        {/* Right Column: Key Biomarkers (Span 1) */}
+                        <div className="space-y-6">
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900">Key Biomarkers</h3>
+                                <p className="text-sm text-gray-500">Critical values analysis</p>
+                            </div>
+                            <div className="space-y-4">
+                                {patientData.topContributingFactors.slice(0, 5).map((factor, index) => (
+                                    <div key={index} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
+                                        <div>
+                                            <p className="font-medium text-gray-900">{factor.biomarker}</p>
+                                            <p className="text-xs text-gray-400 mt-0.5">vs {factor.diseaseAverage.toFixed(2)} avg</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-lg font-bold text-gray-900">{factor.patientValue.toFixed(2)}</p>
+                                            <span className={`text-xs font-bold ${factor.status === 'above' ? 'text-red-500' : 'text-blue-500'
+                                                }`}>
+                                                {factor.status === 'above' ? 'High' : 'Low'}
+                                            </span>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
