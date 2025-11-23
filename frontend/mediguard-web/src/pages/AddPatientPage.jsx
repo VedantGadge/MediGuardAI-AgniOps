@@ -398,7 +398,7 @@ const AddPatientPage = () => {
 
                 // Send to ledger API (fire and forget, or await if critical)
                 // We'll await it to ensure it's sent before showing success, but catch errors so it doesn't block the UI
-                // Using PUT as POST returned 405 Method Not Allowed
+                // User confirmed it is a PUT request
                 const ledgerResponse = await fetch('https://prettied-octavio-uncomparably.ngrok-free.dev/ledger/update-state', {
                     method: 'PUT',
                     headers: {
