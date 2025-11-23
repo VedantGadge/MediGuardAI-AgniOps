@@ -272,7 +272,16 @@ const AddPatientPage = () => {
             console.log('=== Final Payload for Backend ===');
             console.log(finalPayload);
 
-            // Send to backend API
+            // Prepare top 3 contributing factors from disease map
+            const top3Contributors = Object.keys(diseaseBiomarkers)
+                .map(biomarker => ({
+                    feature: biomarker,
+                    contribution: diseaseBiomarkers[biomarker]
+                }))
+                .sort((a, b) => b.contribution - a.contribution)
+                .slice(0, 3);
+
+            // Send to prediction API first
             let backendExplanation = null;
             let backendTopFeatures = null;
             let backendConfidence = null;
@@ -311,6 +320,39 @@ const AddPatientPage = () => {
                 // Don't throw - still show prediction success
             }
 
+            // Send to report API for detailed analysis
+            let reportData = null;
+            try {
+                const reportPayload = {
+                    predicted_disease: predictedDisease,
+                    top_contributing_factors: top3Contributors
+                };
+
+                console.log('=== Report API Request ===');
+                console.log(reportPayload);
+
+                const reportResponse = await fetch('https://yashganatra-mediguardai-api.hf.space/api/report', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(reportPayload)
+                });
+
+                if (reportResponse.ok) {
+                    const reportResult = await reportResponse.json();
+                    console.log('=== Report API Response ===');
+                    console.log(reportResult);
+                    
+                    if (reportResult.success && reportResult.report) {
+                        reportData = reportResult.report;
+                    }
+                }
+            } catch (reportError) {
+                console.error('=== Report API Error ===');
+                console.error('Failed to get report:', reportError);
+            }
+
             // TODO: Save to database
             // await savePatientData({
             //     patientId: formData.patientId,
@@ -323,8 +365,9 @@ const AddPatientPage = () => {
             setPredictionResults({
                 prediction: predictionResult.prediction,
                 confidence: backendConfidence || predictionResult.confidence,
-                topFeatures: backendTopFeatures || [],
-                explanation: backendExplanation || null
+                topFeatures: top3Contributors,
+                explanation: backendExplanation || null,
+                report: reportData
             });
 
             toast.success('Prediction complete!', { id: toastId });
@@ -877,6 +920,71 @@ const AddPatientPage = () => {
                                 </div>
                             )}
 
+                            {/* Detailed Report Sections */}
+                            {predictionResults.report && (
+                                <div className="space-y-6">
+                                    {/* Clinical Analysis */}
+                                    {predictionResults.report.clinical_analysis && (
+                                        <div>
+                                            <h4 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                                                <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                                                Clinical Analysis
+                                            </h4>
+                                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                                <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                                    {predictionResults.report.clinical_analysis}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Etiology and Pathophysiology */}
+                                    {predictionResults.report.etiology_pathophysiology && (
+                                        <div>
+                                            <h4 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                                                <CheckCircle2 className="w-5 h-5 text-purple-600" />
+                                                Etiology & Pathophysiology
+                                            </h4>
+                                            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                                                <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                                    {predictionResults.report.etiology_pathophysiology}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Recommendations */}
+                                    {predictionResults.report.recommendations && (
+                                        <div>
+                                            <h4 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                                                <CheckCircle2 className="w-5 h-5 text-green-600" />
+                                                Recommendations
+                                            </h4>
+                                            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                                <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                                    {predictionResults.report.recommendations}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Full Report */}
+                                    {predictionResults.report.full_report && (
+                                        <div>
+                                            <h4 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                                                <CheckCircle2 className="w-5 h-5 text-orange-600" />
+                                                Full Report
+                                            </h4>
+                                            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                                                <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                                    {predictionResults.report.full_report}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             {/* Action Button */}
                             <div className="flex justify-end pt-4 border-t border-slate-200">
                                 <Button
@@ -948,13 +1056,62 @@ const AddPatientPage = () => {
                             </div>
 
                             {predictionResults.explanation && (
-                                <div>
+                                <div className="mb-8">
                                     <h3 className="text-xl font-bold text-slate-900 mb-4">Analysis Summary</h3>
                                     <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
                                         <p className="text-slate-700 leading-relaxed text-lg">
                                             {predictionResults.explanation}
                                         </p>
                                     </div>
+                                </div>
+                            )}
+
+                            {/* Detailed Report Sections in PDF */}
+                            {predictionResults.report && (
+                                <div className="space-y-8">
+                                    {predictionResults.report.clinical_analysis && (
+                                        <div>
+                                            <h3 className="text-xl font-bold text-slate-900 mb-4">Clinical Analysis</h3>
+                                            <div className="bg-blue-50 p-6 rounded-xl border border-blue-100">
+                                                <p className="text-slate-700 leading-relaxed text-base whitespace-pre-wrap">
+                                                    {predictionResults.report.clinical_analysis}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {predictionResults.report.etiology_pathophysiology && (
+                                        <div>
+                                            <h3 className="text-xl font-bold text-slate-900 mb-4">Etiology & Pathophysiology</h3>
+                                            <div className="bg-purple-50 p-6 rounded-xl border border-purple-100">
+                                                <p className="text-slate-700 leading-relaxed text-base whitespace-pre-wrap">
+                                                    {predictionResults.report.etiology_pathophysiology}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {predictionResults.report.recommendations && (
+                                        <div>
+                                            <h3 className="text-xl font-bold text-slate-900 mb-4">Recommendations</h3>
+                                            <div className="bg-green-50 p-6 rounded-xl border border-green-100">
+                                                <p className="text-slate-700 leading-relaxed text-base whitespace-pre-wrap">
+                                                    {predictionResults.report.recommendations}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {predictionResults.report.full_report && (
+                                        <div>
+                                            <h3 className="text-xl font-bold text-slate-900 mb-4">Full Report</h3>
+                                            <div className="bg-orange-50 p-6 rounded-xl border border-orange-100">
+                                                <p className="text-slate-700 leading-relaxed text-base whitespace-pre-wrap">
+                                                    {predictionResults.report.full_report}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
