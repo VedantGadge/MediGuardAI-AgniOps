@@ -8,9 +8,8 @@ const connectDB = require('./config/db');
 // Initialize express app
 const app = express();
 
-// Connect to MongoDB
-// Connect to MongoDB
-connectDB();
+// Connect to MongoDB (non-blocking for Vercel serverless)
+connectDB().catch(err => console.error('MongoDB connection error:', err));
 
 // Request logger
 app.use((req, res, next) => {
