@@ -116,7 +116,7 @@ export const PatientLookup = () => {
                             placeholder="Enter Patient ID (e.g., P001)"
                             value={patientId}
                             onChange={(e) => setPatientId(e.target.value)}
-                            className="pl-10 h-12 bg-white border-gray-200 focus:border-blue-500 text-lg shadow-sm rounded-xl"
+                            className="pl-10 h-12 bg-white border-gray-200 focus:border-blue-500 text-lg text-gray-900 shadow-sm rounded-xl"
                             disabled={loading}
                         />
                     </div>

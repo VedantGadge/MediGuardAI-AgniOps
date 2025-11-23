@@ -45,6 +45,7 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/dashboard', require('./routes/dashboard_v2'));
+app.use('/api/ocr', require('./routes/ocr'));
 
 app.get('/api/test', (req, res) => {
   res.json({ message: 'test ok' });

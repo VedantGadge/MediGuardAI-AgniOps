@@ -246,34 +246,6 @@ router.get('/patient/:patientId', async (req, res) => {
   }
 });
 
-// @route   GET /api/dashboard/patient-dates/:patientId
-// @desc    Get all analysis dates for a patient
-// @access  Public
-router.get('/patient-dates/:patientId', async (req, res) => {
-  console.log('Hit /patient-dates/:patientId route');
-  try {
-    const { patientId } = req.params;
-    
-    const query = `
-      SELECT "Timestamp"
-      FROM blood_samples
-      WHERE "PatientID" = $1
-      ORDER BY "Timestamp" DESC;
-    `;
-    
-    const result = await pool.query(query, [patientId]);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'No analysis records found for this patient' });
-    }
-    
-    res.json(result.rows.map(row => row.Timestamp));
-  } catch (err) {
-    console.error('Error fetching patient dates:', err);
-    res.status(500).json({ message: 'Server Error', error: err.message });
-  }
-});
-
 // @route   GET /api/dashboard/patient-analysis/:patientId
 // @desc    Get patient analysis with disease prediction and top contributing factors
 // @access  Public
@@ -283,12 +255,11 @@ router.get('/patient-analysis/:patientId', async (req, res) => {
     const { patientId } = req.params;
     const { timestamp } = req.query;
     
-    // Get patient data
+    // Get patient data - either specific timestamp or latest
     let patientQuery;
     let queryParams;
     
     if (timestamp) {
-      // Get specific timestamp
       patientQuery = `
         SELECT *
         FROM blood_samples
@@ -297,7 +268,6 @@ router.get('/patient-analysis/:patientId', async (req, res) => {
       `;
       queryParams = [patientId, timestamp];
     } else {
-      // Get latest
       patientQuery = `
         SELECT *
         FROM blood_samples
@@ -379,6 +349,37 @@ router.get('/patient-analysis/:patientId', async (req, res) => {
     
   } catch (err) {
     console.error('Error fetching patient analysis:', err);
+    res.status(500).json({ message: 'Server Error', error: err.message });
+  }
+});
+
+// @route   GET /api/dashboard/patient-dates/:patientId
+// @desc    Get all available timestamps for a patient
+// @access  Public
+router.get('/patient-dates/:patientId', async (req, res) => {
+  console.log('Hit /patient-dates/:patientId route');
+  try {
+    const { patientId } = req.params;
+    
+    const query = `
+      SELECT "Timestamp"
+      FROM blood_samples
+      WHERE "PatientID" = $1
+      ORDER BY "Timestamp" DESC;
+    `;
+    
+    const result = await pool.query(query, [patientId]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'No records found for this patient' });
+    }
+    
+    // Extract just the timestamps as an array
+    const timestamps = result.rows.map(row => row.Timestamp);
+    
+    res.json(timestamps);
+  } catch (err) {
+    console.error('Error fetching patient dates:', err);
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
 });
