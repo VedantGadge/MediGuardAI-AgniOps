@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from "recharts"
-import axios from "axios"
+import api from "../lib/api"
 
 import {
     Select,
@@ -30,7 +30,7 @@ export function DiseaseRadarChart() {
     useEffect(() => {
         const fetchDiseases = async () => {
             try {
-                const response = await axios.get("http://localhost:5000/api/dashboard/disease-distribution")
+                const response = await api.get("/dashboard/disease-distribution")
                 const diseaseList = response.data
                     .filter(item => item.Disease.toLowerCase() !== 'healthy')
                     .map(item => item.Disease)
@@ -53,7 +53,7 @@ export function DiseaseRadarChart() {
             const fetchRadarData = async () => {
                 setLoading(true)
                 try {
-                    const response = await axios.get("http://localhost:5000/api/dashboard/disease-profile", {
+                    const response = await api.get("/dashboard/disease-profile", {
                         params: { disease: selectedDisease }
                     })
                     const filteredData = response.data.filter(item => {

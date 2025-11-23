@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Line, LineChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend, Tooltip } from "recharts"
-import axios from "axios"
+import api from "../lib/api"
 
 import {
     Select,
@@ -41,7 +41,7 @@ export function DiseaseTemporalChart() {
     useEffect(() => {
         const fetchDiseases = async () => {
             try {
-                const response = await axios.get("http://localhost:5000/api/dashboard/disease-distribution")
+                const response = await api.get("/dashboard/disease-distribution")
                 const diseaseList = response.data
                     .filter(item => item.Disease.toLowerCase() !== 'healthy')
                     .map(item => item.Disease)
@@ -68,7 +68,7 @@ export function DiseaseTemporalChart() {
             try {
                 // Fetch data for all selected diseases
                 const promises = selectedDiseases.map(disease =>
-                    axios.get("http://localhost:5000/api/dashboard/disease-temporal", {
+                    api.get("/dashboard/disease-temporal", {
                         params: { disease, interval }
                     })
                 )

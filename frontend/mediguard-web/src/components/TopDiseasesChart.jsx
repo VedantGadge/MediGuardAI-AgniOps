@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Pie, PieChart, Cell, ResponsiveContainer } from "recharts"
-import axios from "axios"
+import api from "../lib/api"
 
 import {
     Card,
@@ -44,7 +44,7 @@ export function TopDiseasesChart() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await axios.get("http://localhost:5000/api/dashboard/disease-distribution")
+                const response = await api.get("/dashboard/disease-distribution")
 
                 // Filter out "Healthy" and sort by count
                 const filteredData = response.data
