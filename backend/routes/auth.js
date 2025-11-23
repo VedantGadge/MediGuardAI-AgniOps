@@ -16,7 +16,12 @@ const generateToken = (id) => {
 router.get('/test', (req, res) => {
   res.json({
     success: true,
-    message: 'Auth router is working'
+    message: 'Auth router is working',
+    envCheck: {
+      hasJwtSecret: !!process.env.JWT_SECRET,
+      hasJwtExpire: !!process.env.JWT_EXPIRE,
+      hasMongoUri: !!process.env.MONGODB_URI
+    }
   });
 });
 
