@@ -5,6 +5,11 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
 
+// Import routes
+const authRoutes = require('./routes/auth');
+const dashboardRoutes = require('./routes/dashboard_v2');
+const ocrRoutes = require('./routes/ocr');
+
 // Initialize express app
 const app = express();
 
@@ -60,9 +65,11 @@ app.get('/', (req, res) => {
 });
 
 // Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/dashboard', require('./routes/dashboard_v2'));
-app.use('/api/ocr', require('./routes/ocr'));
+app.use('/api/auth', authRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/ocr', ocrRoutes);
+
+console.log('✅ Routes registered: /api/auth, /api/dashboard, /api/ocr');
 
 app.get('/api/test', (req, res) => {
   res.json({ message: 'test ok' });
@@ -70,10 +77,24 @@ app.get('/api/test', (req, res) => {
 
 // Health check route
 app.get('/api/health', (req, res) => {
+  const mongoose = require('mongoose');
+  const dbStatus = mongoose.connection.readyState;
+  const dbStates = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  };
+
   res.status(200).json({
     success: true,
     message: 'Server is running',
     timestamp: new Date().toISOString(),
+    database: {
+      status: dbStates[dbStatus],
+      readyState: dbStatus
+    },
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 

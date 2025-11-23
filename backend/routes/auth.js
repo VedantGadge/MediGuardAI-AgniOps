@@ -12,6 +12,14 @@ const generateToken = (id) => {
   });
 };
 
+// Test route to verify auth router is working
+router.get('/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Auth router is working'
+  });
+});
+
 // @route   POST /api/auth/signup
 // @desc    Register a new user
 // @access  Public
@@ -208,10 +216,12 @@ router.post(
       });
     } catch (error) {
       console.error('Login error:', error);
+      console.error('Error stack:', error.stack);
       res.status(500).json({
         success: false,
         message: 'Server error during login',
         error: error.message,
+        ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
       });
     }
   }
