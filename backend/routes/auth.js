@@ -167,10 +167,12 @@ router.post(
       .withMessage('Password is required'),
   ],
   async (req, res) => {
+    console.log('Login request received');
     try {
       // Check for validation errors
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        console.log('Login validation errors:', errors.array());
         return res.status(400).json({
           success: false,
           errors: errors.array(),
@@ -178,18 +180,24 @@ router.post(
       }
 
       const { email, password } = req.body;
+      console.log('Login attempt for email:', email);
 
       // Check if user exists (include password for verification)
+      console.log('Finding user in database...');
       const user = await User.findOne({ email }).select('+password');
+      
       if (!user) {
+        console.log('User not found');
         return res.status(401).json({
           success: false,
           message: 'Invalid credentials',
         });
       }
+      console.log('User found, ID:', user._id);
 
       // Check if user is active
       if (!user.isActive) {
+        console.log('User is inactive');
         return res.status(401).json({
           success: false,
           message: 'Your account has been deactivated',
@@ -197,8 +205,12 @@ router.post(
       }
 
       // Verify password
+      console.log('Verifying password...');
       const isPasswordValid = await user.comparePassword(password);
+      console.log('Password valid:', isPasswordValid);
+      
       if (!isPasswordValid) {
+        console.log('Invalid password');
         return res.status(401).json({
           success: false,
           message: 'Invalid credentials',
@@ -206,7 +218,9 @@ router.post(
       }
 
       // Generate token
+      console.log('Generating token...');
       const token = generateToken(user._id);
+      console.log('Token generated successfully');
 
       res.status(200).json({
         success: true,
