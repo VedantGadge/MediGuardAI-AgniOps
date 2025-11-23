@@ -451,19 +451,32 @@ const AddPatientPage = () => {
             const canvas = await html2canvas(input, {
                 scale: 2,
                 logging: false,
-                useCORS: true
-            });
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: 'a4'
+                useCORS: true,
+                scrollY: -window.scrollY
             });
 
-            const imgWidth = 210;
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = pdfWidth;
             const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-            pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+            let heightLeft = imgHeight;
+            let position = 0;
+
+            // Add first page
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pdfHeight;
+
+            // Add subsequent pages if content overflows
+            while (heightLeft >= 0) {
+                position = heightLeft - imgHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pdfHeight;
+            }
+
             pdf.save(`MediGuard-Report-${formData.patientId}.pdf`);
 
             toast.success('Report downloaded successfully!', { id: toastId });
@@ -918,48 +931,6 @@ const AddPatientPage = () => {
                                 </div>
                             </div>
 
-                            {/* Top Contributing Features */}
-                            {predictionResults.topFeatures && predictionResults.topFeatures.length > 0 && (
-                                <div>
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <h4 className="text-lg font-bold text-slate-900">Top Contributing Factors</h4>
-                                    </div>
-                                    <div className="space-y-4">
-                                        {predictionResults.topFeatures.slice(0, 3).map((feature, index) => {
-                                            // Calculate bar width as percentage (normalize to max value)
-                                            const maxContribution = Math.max(...predictionResults.topFeatures.map(f => f.contribution));
-                                            const widthPercentage = (feature.contribution / maxContribution) * 100;
-
-                                            // Color gradient based on rank
-                                            const colors = [
-                                                'from-slate-500 to-slate-600',
-                                                'from-slate-400 to-slate-500',
-                                                'from-slate-300 to-slate-400'
-                                            ];
-
-                                            return (
-                                                <div key={index} className="space-y-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="font-medium text-slate-700">{feature.feature}</span>
-                                                        <span className="text-xs text-slate-500">#{index + 1}</span>
-                                                    </div>
-                                                    <div className="w-full bg-slate-100 rounded-full h-8 overflow-hidden">
-                                                        <motion.div
-                                                            initial={{ width: 0 }}
-                                                            animate={{ width: `${widthPercentage}%` }}
-                                                            transition={{ duration: 0.8, delay: index * 0.1, ease: "easeOut" }}
-                                                            className={`h-full bg-gradient-to-r ${colors[index]} rounded-full flex items-center justify-end pr-3`}
-                                                        >
-                                                            <span className="text-white text-xs font-semibold opacity-0"></span>
-                                                        </motion.div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
                             {/* Explanation */}
                             {predictionResults.explanation && (
                                 <div>
@@ -969,71 +940,6 @@ const AddPatientPage = () => {
                                             {predictionResults.explanation}
                                         </p>
                                     </div>
-                                </div>
-                            )}
-
-                            {/* Detailed Report Sections */}
-                            {predictionResults.report && (
-                                <div className="space-y-6">
-                                    {/* Clinical Analysis */}
-                                    {predictionResults.report.clinical_analysis && (
-                                        <div>
-                                            <h4 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                                                <CheckCircle2 className="w-5 h-5 text-blue-600" />
-                                                Clinical Analysis
-                                            </h4>
-                                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                                <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
-                                                    {predictionResults.report.clinical_analysis}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Etiology and Pathophysiology */}
-                                    {predictionResults.report.etiology_pathophysiology && (
-                                        <div>
-                                            <h4 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                                                <CheckCircle2 className="w-5 h-5 text-purple-600" />
-                                                Etiology & Pathophysiology
-                                            </h4>
-                                            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                                                <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
-                                                    {predictionResults.report.etiology_pathophysiology}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Recommendations */}
-                                    {predictionResults.report.recommendations && (
-                                        <div>
-                                            <h4 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                                                <CheckCircle2 className="w-5 h-5 text-green-600" />
-                                                Recommendations
-                                            </h4>
-                                            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                                                <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
-                                                    {predictionResults.report.recommendations}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Full Report */}
-                                    {predictionResults.report.full_report && (
-                                        <div>
-                                            <h4 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                                                <CheckCircle2 className="w-5 h-5 text-orange-600" />
-                                                Full Report
-                                            </h4>
-                                            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                                                <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
-                                                    {predictionResults.report.full_report}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             )}
 
