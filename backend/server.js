@@ -19,7 +19,9 @@ app.use((req, res, next) => {
 });
 
 // Security Middleware
-app.use(helmet()); // Set security headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+})); // Set security headers
 
 // Rate limiting
 const limiter = rateLimit({
