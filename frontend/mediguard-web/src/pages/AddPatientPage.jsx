@@ -346,7 +346,7 @@ const AddPatientPage = () => {
                 const reportResult = await reportResponse.json();
                 console.log('=== Report API Response ===');
                 console.log(JSON.stringify(reportResult, null, 2));
-                
+
                 if (reportResponse.ok && reportResult.success && reportResult.report) {
                     reportData = reportResult.report;
                     console.log('=== Report Data Extracted ===');
@@ -382,6 +382,40 @@ const AddPatientPage = () => {
                 explanation: backendExplanation || null,
                 report: reportData
             };
+
+            // --- Blockchain Ledger Update ---
+            try {
+                const ledgerPayload = {
+                    user_id: formData.patientId,
+                    ...biomarkerData, // Spread all biomarker values (glucose, cholesterol, etc.)
+                    disease: predictionResult.prediction,
+                    reason: top3Contributors.length > 0 ? top3Contributors[0].feature : "Unknown",
+                    timestamp: new Date().toISOString()
+                };
+
+                console.log('=== Ledger Update Request ===');
+                console.log(ledgerPayload);
+
+                // Send to ledger API (fire and forget, or await if critical)
+                // We'll await it to ensure it's sent before showing success, but catch errors so it doesn't block the UI
+                const ledgerResponse = await fetch('https://prettied-octavio-uncomparably.ngrok-free.dev/ledger/update-state', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(ledgerPayload)
+                });
+
+                if (!ledgerResponse.ok) {
+                    console.warn(`Ledger update failed with status: ${ledgerResponse.status}`);
+                } else {
+                    console.log('Ledger update successful');
+                }
+            } catch (ledgerError) {
+                console.error('Failed to update ledger:', ledgerError);
+                // Do not throw, allow the flow to continue
+            }
+            // --------------------------------
 
             console.log('=== Storing Prediction Results ===');
             console.log('Report data being stored:', resultsToStore.report);
