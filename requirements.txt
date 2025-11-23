@@ -5,3 +5,5 @@ python-dotenv
 pydantic
 pyjwt
 requests
+web3
+py-solc-x

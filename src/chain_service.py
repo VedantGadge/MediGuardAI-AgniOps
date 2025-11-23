@@ -1,101 +1,159 @@
-import hashlib
 import json
-import time
+import os
+from web3 import Web3
 from typing import Dict, Any
-from pymongo import DESCENDING
+from dotenv import load_dotenv
 
-# Assuming you added 'get_collection' to your imports or utils
-from utils.Mongo_utils import insert_document, get_latest_block, get_collection
+# 1. Load Environment Variables
+load_dotenv()
 
-COLLECTION_NAME = "user_chain"
+# 2. Setup Web3 Connection
+# We use os.getenv so you can switch to Sepolia later easily
+NETWORK_URL = os.getenv("NETWORK_URL", "http://127.0.0.1:7545")
+PRIVATE_KEY = os.getenv("PRIVATE_KEY")
 
-# --- EXISTING FUNCTIONS (Keep these as is) ---
+if not PRIVATE_KEY:
+    raise ValueError("❌ Error: PRIVATE_KEY not found in .env file")
 
-def calculate_hash(block_data: Dict[str, Any]) -> str:
-    clean_data = block_data.copy()
-    # Remove metadata that shouldn't be part of the content hash
-    for key in ["_id", "current_hash"]: 
-        if key in clean_data:
-            del clean_data[key]
-            
-    block_string = json.dumps(clean_data, sort_keys=True).encode()
-    return hashlib.sha256(block_string).hexdigest()
+w3 = Web3(Web3.HTTPProvider(NETWORK_URL))
+
+# Derive the sender address from the private key
+try:
+    my_address = w3.eth.account.from_key(PRIVATE_KEY).address
+except Exception as e:
+    raise ValueError(f"❌ Error: Invalid PRIVATE_KEY. Check your .env file. Details: {e}")
+
+# 3. Load Contract Data
+# This file is created by your deploy.py script
+CONTRACT_PATH = "contract_data.json"
+if not os.path.exists(CONTRACT_PATH):
+    raise FileNotFoundError(f"❌ Error: {CONTRACT_PATH} not found. Run deploy.py first.")
+
+with open(CONTRACT_PATH, "r") as f:
+    contract_info = json.load(f)
+
+contract = w3.eth.contract(
+    address=contract_info["address"], 
+    abi=contract_info["abi"]
+)
 
 def add_user_to_chain(user_data: Dict[str, Any]) -> Dict[str, Any]:
-    # 1. Get Global Last Block (for Chain Linking)
-    last_block = get_latest_block(COLLECTION_NAME, sort_field="index")
-    
-    if last_block:
-        previous_hash = last_block["current_hash"]
-        new_index = last_block["index"] + 1
-    else:
-        previous_hash = "0" * 64
-        new_index = 0
+    """
+    Writes new user data to the Blockchain.
+    """
+    try:
+        nonce = w3.eth.get_transaction_count(my_address)
+        
+        # Call Solidity: addUser(username, role, reason)
+        txn = contract.functions.addUser(
+            user_data["username"],
+            user_data["role"],
+            user_data.get("reason", "New User Created")
+        ).build_transaction({
+            "chainId": int(os.getenv("CHAIN_ID", 1337)),
+            "gasPrice": w3.eth.gas_price,
+            "from": my_address,
+            "nonce": nonce
+        })
 
-    # 2. Prepare the Block
-    new_block = {
-        "index": new_index,
-        "timestamp": time.time(),
-        "previous_hash": previous_hash,
-        **user_data
-    }
+        # Sign & Send
+        signed_txn = w3.eth.account.sign_transaction(txn, private_key=PRIVATE_KEY)
+        
+        # Use .raw_transaction (snake_case)
+        tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
+        receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    # 3. Seal it
-    new_block["current_hash"] = calculate_hash(new_block)
-
-    # 4. Save
-    result = insert_document(COLLECTION_NAME, new_block)
-    
-    if result["status"]:
         return {
-            "status": True, 
-            "message": f"Block added at Index {new_index}", 
-            "hash": new_block["current_hash"]
+            "status": True,
+            "message": "User added to blockchain",
+            "tx_hash": tx_hash.hex(),
+            "block_number": receipt.blockNumber
         }
-    else:
-        return {"status": False, "message": "Database Error"}
 
-# --- NEW: UPDATE FUNCTION ---
+    except Exception as e:
+        print(f"Blockchain Error: {e}")
+        return {"status": False, "message": str(e)}
 
 def update_user_state(user_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
     """
-    1. Fetches the MOST RECENT state of a specific user.
-    2. 'Decodes' it (removes blockchain metadata).
-    3. Merges new updates.
-    4. 'Encodes' it into a BRAND NEW block at the end of the chain.
+    Updates a user by appending a NEW block.
+    
+    NOVEL FEATURE: Since the Smart Contract only accepts (username, role, reason),
+    we serialize the extra medical data (glucose, etc.) into the 'reason' field
+    so it gets stored on-chain safely without needing a contract redeploy.
     """
-    
-    # STEP 1: Get the previous data for this specific user
-    # We query for 'user_id' and sort by 'index' descending to get their latest version
-    col = get_collection(COLLECTION_NAME)
-    
-    # Find the latest block that contains this user_id
-    current_user_block = col.find_one(
-        {"user_id": user_id}, 
-        sort=[("index", DESCENDING)]
-    )
+    try:
+        username = user_id 
+        
+        # Extract known fields
+        # If 'role' is not in updates, we use a placeholder or keep it generic
+        new_role = updates.get("role", "Update: Medical Record")
+        audit_reason = updates.get("reason", "Routine Update")
+        
+        # PACKING STRATEGY: 
+        # Identify all extra fields (Medical Data) to save them
+        medical_data = {}
+        for key, value in updates.items():
+            if key not in ["role", "reason", "user_id"]:
+                medical_data[key] = value
+        
+        # Create a "Smart String" that holds both the reason AND the data
+        # Example: "Monthly Checkup | Data: {"glucose": 90, "bp": 120}"
+        if medical_data:
+            data_string = json.dumps(medical_data)
+            final_reason = f"{audit_reason} | Data: {data_string}"
+        else:
+            final_reason = audit_reason
 
-    if not current_user_block:
-        return {"status": False, "message": "User not found in chain"}
+        # Build Transaction
+        nonce = w3.eth.get_transaction_count(my_address)
+        
+        txn = contract.functions.addUser(
+            username,
+            new_role,
+            final_reason  # <--- We send the packed data here
+        ).build_transaction({
+            "chainId": int(os.getenv("CHAIN_ID", 1337)),
+            "gasPrice": w3.eth.gas_price,
+            "from": my_address,
+            "nonce": nonce
+        })
 
-    # STEP 2: Decode & Clean
-    # We strip away the 'Block' metadata (Index, Hash, Timestamp) 
-    # to get just the raw 'User Data'.
-    user_data = current_user_block.copy()
-    
-    # Remove blockchain fields so we don't duplicate them
-    keys_to_remove = ["_id", "index", "previous_hash", "current_hash", "timestamp"]
-    for key in keys_to_remove:
-        if key in user_data:
-            del user_data[key]
+        signed_txn = w3.eth.account.sign_transaction(txn, private_key=PRIVATE_KEY)
+        tx_hash = w3.eth.send_raw_transaction(signed_txn.raw_transaction)
+        receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    # STEP 3: Add/Merge More Data
-    # This updates the dictionary with new values
-    user_data.update(updates)
-    
-    # Mark this as an update event (optional, but good for history)
-    user_data["update_note"] = "Updated via function"
+        return {
+            "status": True,
+            "message": f"User updated (Block #{receipt.blockNumber})",
+            "tx_hash": tx_hash.hex(),
+            "block_number": receipt.blockNumber,
+            "data_stored": final_reason
+        }
 
-    # STEP 4: Store in the NEXT Node (Append to Chain)
-    # We reuse our existing add function because it handles the Hashing & Linking
-    return add_user_to_chain(user_data)
+    except Exception as e:
+        return {"status": False, "message": str(e)}
+
+def get_chain_data():
+    """
+    Reads all blocks from the Smart Contract.
+    """
+    try:
+        total_blocks = contract.functions.getChainLength().call()
+        history = []
+        
+        for i in range(total_blocks):
+            # Returns: (index, username, role, timestamp, reason)
+            block = contract.functions.getBlock(i).call()
+            history.append({
+                "index": block[0],
+                "username": block[1],
+                "role": block[2],
+                "timestamp": block[3],
+                "reason": block[4]
+            })
+            
+        return history
+    except Exception as e:
+        print(f"Read Error: {e}")
+        return []
