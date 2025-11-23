@@ -45,22 +45,22 @@ const NumberInput = React.forwardRef(({ className, value, onChange, step = 1, ..
                 ref={ref}
                 {...props}
             />
-            <div className="absolute right-1 top-1 bottom-1 w-6 flex flex-col gap-[1px]">
+            <div className="absolute right-0 top-0 bottom-0 w-10 flex flex-col border-l border-slate-200 z-10">
                 <button
                     type="button"
                     onClick={handleIncrement}
-                    className="flex-1 flex items-center justify-center bg-white hover:bg-slate-100 text-slate-600 rounded-t-sm transition-colors"
+                    className="flex-1 flex items-center justify-center bg-white hover:bg-slate-100 text-slate-600 rounded-tr-md transition-colors border-b border-slate-100"
                     tabIndex={-1}
                 >
-                    <ChevronUp className="h-3 w-3" />
+                    <ChevronUp className="h-4 w-4" />
                 </button>
                 <button
                     type="button"
                     onClick={handleDecrement}
-                    className="flex-1 flex items-center justify-center bg-white hover:bg-slate-100 text-slate-600 rounded-b-sm transition-colors"
+                    className="flex-1 flex items-center justify-center bg-white hover:bg-slate-100 text-slate-600 rounded-br-md transition-colors"
                     tabIndex={-1}
                 >
-                    <ChevronDown className="h-3 w-3" />
+                    <ChevronDown className="h-4 w-4" />
                 </button>
             </div>
         </div>

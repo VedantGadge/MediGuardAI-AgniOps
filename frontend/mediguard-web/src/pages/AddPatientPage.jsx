@@ -612,7 +612,7 @@ const AddPatientPage = () => {
                             />
                             <Button
                                 variant="outline"
-                                className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm"
+                                className="bg-white border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-400 hover:text-slate-900 shadow-sm transition-all"
                                 onClick={() => document.getElementById('report-upload').click()}
                             >
                                 <Activity className="w-4 h-4 mr-2 text-slate-500" />
@@ -737,7 +737,7 @@ const AddPatientPage = () => {
                                         });
                                         setFormData(resetData);
                                     }}
-                                    className="px-8 border-slate-300 text-slate-700 hover:bg-slate-50"
+                                    className="px-8 border-slate-300 text-slate-700 hover:bg-slate-100 hover:border-slate-400 hover:text-slate-900 transition-all"
                                 >
                                     Clear Form
                                 </Button>
