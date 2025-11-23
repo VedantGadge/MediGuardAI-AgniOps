@@ -950,14 +950,14 @@ const AddPatientPage = () => {
                                 <Button
                                     onClick={generatePDF}
                                     variant="outline"
-                                    className="mr-3 border-slate-300 text-slate-700 hover:bg-slate-50"
+                                    className="mr-3 border-slate-300 text-slate-700 bg-white hover:bg-slate-100 hover:text-slate-900 transition-colors"
                                 >
                                     <Download className="w-4 h-4 mr-2" />
                                     Export Report
                                 </Button>
                                 <Button
                                     onClick={() => setShowResultModal(false)}
-                                    className="bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700"
+                                    className="bg-gradient-to-r from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700 text-white shadow-md hover:shadow-lg transition-all"
                                 >
                                     Close
                                 </Button>
