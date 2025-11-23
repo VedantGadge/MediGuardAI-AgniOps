@@ -14,7 +14,18 @@ const ocrRoutes = require('./routes/ocr');
 const app = express();
 
 // Connect to MongoDB (non-blocking for Vercel serverless)
-connectDB().catch(err => console.error('MongoDB connection error:', err));
+// connectDB().catch(err => console.error('MongoDB connection error:', err));
+
+// Middleware to ensure DB connection
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error('Database connection failed:', error);
+    res.status(500).json({ success: false, message: 'Database connection failed' });
+  }
+});
 
 // Request logger
 app.use((req, res, next) => {
