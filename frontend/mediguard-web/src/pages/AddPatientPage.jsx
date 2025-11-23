@@ -228,7 +228,7 @@ const AddPatientPage = () => {
             console.log('Input biomarkers:', biomarkerData);
 
             // Call ML prediction API
-            const mlResponse = await fetch('https://harshilforworks-redact-ml-model-agni.hf.space/api/predict', {
+            const mlResponse = await fetch(`${process.env.REACT_APP_ML_API_URL || 'https://harshilforworks-redact-ml-model-agni.hf.space'}/api/predict`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -418,7 +418,7 @@ const AddPatientPage = () => {
                                     const toastId = toast.loading('Processing report image...');
 
                                     try {
-                                        const response = await fetch('http://localhost:5000/api/ocr/extract', {
+                                        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000'}/api/ocr/extract`, {
                                             method: 'POST',
                                             body: uploadFormData,
                                         });
