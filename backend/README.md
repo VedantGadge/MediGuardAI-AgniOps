@@ -1,6 +1,6 @@
 # MediGuardAI Backend - Authentication API
 
-This is the backend authentication system for MediGuardAI built with Node.js, Express, and MongoDB Atlas.
+This is the backend authentication system for MediGuardAI built with Node.js, Express, and MongoDB Atlas. 
 
 ## Features
 
