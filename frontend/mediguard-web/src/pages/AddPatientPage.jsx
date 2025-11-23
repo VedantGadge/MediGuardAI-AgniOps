@@ -329,7 +329,7 @@ const AddPatientPage = () => {
                 };
 
                 console.log('=== Report API Request ===');
-                console.log(reportPayload);
+                console.log(JSON.stringify(reportPayload, null, 2));
 
                 const reportResponse = await fetch('https://yashganatra-mediguardai-api.hf.space/api/report', {
                     method: 'POST',
@@ -339,18 +339,31 @@ const AddPatientPage = () => {
                     body: JSON.stringify(reportPayload)
                 });
 
-                if (reportResponse.ok) {
-                    const reportResult = await reportResponse.json();
-                    console.log('=== Report API Response ===');
-                    console.log(reportResult);
-                    
-                    if (reportResult.success && reportResult.report) {
-                        reportData = reportResult.report;
-                    }
+                console.log('=== Report API Status ===');
+                console.log('Status:', reportResponse.status);
+                console.log('OK:', reportResponse.ok);
+
+                const reportResult = await reportResponse.json();
+                console.log('=== Report API Response ===');
+                console.log(JSON.stringify(reportResult, null, 2));
+                
+                if (reportResponse.ok && reportResult.success && reportResult.report) {
+                    reportData = reportResult.report;
+                    console.log('=== Report Data Extracted ===');
+                    console.log('Clinical Analysis:', reportData.clinical_analysis ? 'Present' : 'Missing');
+                    console.log('Etiology:', reportData.etiology_pathophysiology ? 'Present' : 'Missing');
+                    console.log('Recommendations:', reportData.recommendations ? 'Present' : 'Missing');
+                    console.log('Full Report:', reportData.full_report ? 'Present' : 'Missing');
+                } else {
+                    console.error('=== Report API Failed ===');
+                    console.error('Response not OK or missing data');
+                    console.error('Success:', reportResult.success);
+                    console.error('Has report:', !!reportResult.report);
                 }
             } catch (reportError) {
                 console.error('=== Report API Error ===');
                 console.error('Failed to get report:', reportError);
+                console.error('Error stack:', reportError.stack);
             }
 
             // TODO: Save to database
@@ -362,13 +375,18 @@ const AddPatientPage = () => {
             // });
 
             // Store results and show modal
-            setPredictionResults({
+            const resultsToStore = {
                 prediction: predictionResult.prediction,
                 confidence: backendConfidence || predictionResult.confidence,
                 topFeatures: top3Contributors,
                 explanation: backendExplanation || null,
                 report: reportData
-            });
+            };
+
+            console.log('=== Storing Prediction Results ===');
+            console.log('Report data being stored:', resultsToStore.report);
+
+            setPredictionResults(resultsToStore);
 
             toast.success('Prediction complete!', { id: toastId });
             setShowResultModal(true);
