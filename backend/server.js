@@ -43,6 +43,22 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+
+// Root route
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'MediGuard AI Backend API',
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth/*',
+      dashboard: '/api/dashboard/*',
+      ocr: '/api/ocr/*'
+    }
+  });
+});
+
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/dashboard', require('./routes/dashboard_v2'));
