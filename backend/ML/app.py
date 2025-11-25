@@ -16,7 +16,34 @@ load_dotenv()
 # model = joblib.load("model.pkl")
 # explainer = shap.TreeExplainer(model)
 
-FEATURES = ["Glucose", "Troponin", "BMI", "BloodPressure", "Hemoglobin"]  # add all 24
+FEATURES = [
+    "Glucose",
+    "Troponin",
+    "BMI",
+    "BloodPressure",   # keeping your original field
+    "Hemoglobin",
+    "Cholesterol",
+    "Platelets",
+    "White Blood Cells",
+    "Red Blood Cells",
+    "Hematocrit",
+    "Mean Corpuscular Volume",
+    "Mean Corpuscular Hemoglobin",
+    "Mean Corpuscular Hemoglobin Concentration",
+    "Insulin",
+    "Systolic Blood Pressure",
+    "Diastolic Blood Pressure",
+    "Triglycerides",
+    "HbA1c",
+    "LDL Cholesterol",
+    "HDL Cholesterol",
+    "ALT",
+    "AST",
+    "Heart Rate",
+    "Creatinine",
+    "C-reactive Protein"
+]
+ # add all 24
 
 
 # -------------------- FastAPI --------------------
@@ -88,7 +115,7 @@ Use simple, clinician-friendly language. Do NOT add any new conditions or specul
     payload = {
         "model": "openai/gpt-oss-120b",
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.2
+        "temperature": 0.5
     }
 
     headers = {"Authorization": f"Bearer {api_key}"}
